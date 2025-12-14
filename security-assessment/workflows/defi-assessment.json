@@ -1,0 +1,122 @@
+{
+  "name": "defi-assessment",
+  "description": "Specialized assessment workflow for DeFi applications",
+  "version": "1.0.0",
+  "codebaseTypes": ["mixed"],
+  "steps": [
+    {
+      "name": "setup-defi",
+      "description": "Set up DeFi development environment",
+      "tool": "setup",
+      "config": {
+        "nodeVersion": "20.19.6",
+        "solidityVersion": "latest",
+        "installDependencies": true,
+        "installHardhat": true,
+        "createOutputDir": true
+      }
+    },
+    {
+      "name": "backend-dependency-audit",
+      "description": "Audit backend dependencies",
+      "tool": "npm-audit",
+      "config": {
+        "auditLevel": "moderate",
+        "includeDevDependencies": true,
+        "outputFormat": "json"
+      },
+      "condition": {
+        "type": "file-exists",
+        "value": "server/package.json"
+      }
+    },
+    {
+      "name": "frontend-dependency-audit",
+      "description": "Audit frontend dependencies",
+      "tool": "npm-audit",
+      "config": {
+        "auditLevel": "moderate",
+        "includeDevDependencies": true,
+        "outputFormat": "json",
+        "workingDirectory": "."
+      },
+      "condition": {
+        "type": "file-exists",
+        "value": "package.json"
+      }
+    },
+    {
+      "name": "backend-security-scan",
+      "description": "Security scan of backend Node.js code",
+      "tool": "semgrep",
+      "config": {
+        "rules": ["javascript", "nodejs", "security"],
+        "paths": ["server/"],
+        "outputFormat": "json"
+      }
+    },
+    {
+      "name": "smart-contract-compilation",
+      "description": "Compile smart contracts",
+      "tool": "solidity-compiler",
+      "config": {
+        "version": "auto",
+        "optimizer": true,
+        "outputFormat": "json"
+      },
+      "condition": {
+        "type": "file-exists",
+        "value": "contracts"
+      }
+    },
+    {
+      "name": "contract-security-analysis",
+      "description": "Comprehensive smart contract security analysis",
+      "tool": "slither",
+      "config": {
+        "detectors": "all",
+        "outputFormat": "json",
+        "excludeInformational": false,
+        "focusOnDefi": true
+      }
+    },
+    {
+      "name": "defi-specific-checks",
+      "description": "DeFi-specific vulnerability checks",
+      "tool": "mythx",
+      "config": {
+        "mode": "deep",
+        "defiRules": true,
+        "outputFormat": "json"
+      },
+      "timeout": 900
+    },
+    {
+      "name": "gas-optimization-analysis",
+      "description": "Gas optimization analysis for DeFi contracts",
+      "tool": "gas-analyzer",
+      "config": {
+        "optimizationLevel": 200,
+        "defiPatterns": true,
+        "reportThreshold": 50000
+      }
+    },
+    {
+      "name": "integration-testing",
+      "description": "Run integration tests for DeFi workflows",
+      "tool": "test-runner",
+      "config": {
+        "framework": "hardhat",
+        "includeIntegration": true,
+        "network": "hardhat",
+        "coverage": true,
+        "timeout": 600
+      }
+    }
+  ],
+  "parallelSteps": [
+    ["backend-dependency-audit", "frontend-dependency-audit"],
+    ["backend-security-scan", "contract-security-analysis"],
+    ["defi-specific-checks", "gas-optimization-analysis"]
+  ]
+}

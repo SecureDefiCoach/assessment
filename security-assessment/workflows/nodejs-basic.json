@@ -1,0 +1,54 @@
+{
+  "name": "nodejs-basic",
+  "description": "Basic security assessment for Node.js applications",
+  "version": "1.0.0",
+  "codebaseTypes": ["nodejs"],
+  "steps": [
+    {
+      "name": "setup",
+      "description": "Set up Node.js environment",
+      "tool": "setup",
+      "config": {
+        "nodeVersion": "lts",
+        "installDependencies": true,
+        "createOutputDir": true
+      }
+    },
+    {
+      "name": "dependency-audit",
+      "description": "Audit npm dependencies for vulnerabilities",
+      "tool": "npm-audit",
+      "config": {
+        "auditLevel": "moderate",
+        "includeDevDependencies": true,
+        "outputFormat": "json"
+      },
+      "condition": {
+        "type": "file-exists",
+        "value": "package.json"
+      }
+    },
+    {
+      "name": "static-analysis",
+      "description": "Run ESLint static analysis",
+      "tool": "eslint",
+      "config": {
+        "configFile": ".eslintrc.js",
+        "extensions": [".js", ".ts", ".jsx", ".tsx"],
+        "outputFormat": "json"
+      }
+    },
+    {
+      "name": "security-scan",
+      "description": "Run Semgrep security analysis",
+      "tool": "semgrep",
+      "config": {
+        "rules": ["javascript", "typescript", "security"],
+        "outputFormat": "json"
+      }
+    }
+  ],
+  "parallelSteps": [
+    ["static-analysis", "security-scan"]
+  ]
+}

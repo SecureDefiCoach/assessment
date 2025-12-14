@@ -1,0 +1,220 @@
+# Security Assessment Container Orchestration
+# Docker Compose configuration for isolated analysis environments
+
+version: '3.8'
+
+services:
+  # Main security assessment container
+  security-assessment:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: security-assessment-main
+    hostname: assessment-env
+    
+    # Security configurations
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:unconfined  # Required for some analysis tools
+    
+    # Resource limits for security
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Network isolation
+    networks:
+      - assessment-network
+    
+    # Volume mounts with security restrictions
+    volumes:
+      # Read-only code mount
+      - type: bind
+        source: ${CODEBASE_PATH:-./workspace}
+        target: /app/workspace
+        read_only: true
+      # Results output (writable)
+      - assessment-results:/app/results
+      # Temporary workspace (writable, isolated)
+      - assessment-temp:/tmp
+    
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - ASSESSMENT_MODE=security
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - MAX_ANALYSIS_TIME=${MAX_ANALYSIS_TIME:-3600}
+      - ENABLE_NETWORK_MONITORING=${ENABLE_NETWORK_MONITORING:-true}
+    
+    # Prevent container from accessing host network
+    network_mode: none
+    
+    # User security
+    user: "1001:1001"
+    
+    # Restart policy
+    restart: "no"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Blockchain-specific assessment container
+  blockchain-assessment:
+    build:
+      context: .
+      dockerfile: Dockerfile.blockchain
+    container_name: blockchain-assessment
+    hostname: blockchain-env
+    
+    # Security configurations
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:unconfined
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '3.0'
+          memory: 6G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    
+    # Network isolation
+    networks:
+      - blockchain-network
+    
+    # Volume mounts
+    volumes:
+      # Smart contracts (read-only)
+      - type: bind
+        source: ${CONTRACTS_PATH:-./contracts}
+        target: /app/contracts
+        read_only: true
+      # Test files (read-only)
+      - type: bind
+        source: ${TESTS_PATH:-./tests}
+        target: /app/tests
+        read_only: true
+      # Results output
+      - blockchain-results:/app/results
+      # Blockchain data
+      - blockchain-data:/app/.hardhat
+    
+    # Environment variables for blockchain
+    environment:
+      - NODE_ENV=production
+      - ASSESSMENT_MODE=blockchain
+      - HARDHAT_NETWORK=localhost
+      - SOLC_VERSION=0.8.21
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - GAS_LIMIT=${GAS_LIMIT:-8000000}
+    
+    # Network isolation
+    network_mode: none
+    
+    # User security
+    user: "1001:1001"
+    
+    # Restart policy
+    restart: "no"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "solc --version && hardhat --version"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 15s
+
+  # Network monitoring container (when network access is needed)
+  network-monitor:
+    image: alpine:latest
+    container_name: network-monitor
+    
+    # Security configurations
+    security_opt:
+      - no-new-privileges:true
+    
+    # Minimal resources
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    
+    # Network configuration for monitoring
+    networks:
+      - assessment-network
+      - blockchain-network
+    
+    # Monitoring tools
+    command: >
+      sh -c "
+        apk add --no-cache tcpdump netstat-nat &&
+        echo 'Network monitoring active' &&
+        tail -f /dev/null
+      "
+    
+    # User security
+    user: "1000:1000"
+    
+    # Restart policy
+    restart: "no"
+
+# Network definitions for isolation
+networks:
+  assessment-network:
+    driver: bridge
+    internal: true  # No external access
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+  
+  blockchain-network:
+    driver: bridge
+    internal: true  # No external access
+    ipam:
+      config:
+        - subnet: 172.21.0.0/24
+
+# Volume definitions
+volumes:
+  assessment-results:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1G,uid=1001,gid=1001
+  
+  assessment-temp:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=512M,uid=1001,gid=1001
+  
+  blockchain-results:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=2G,uid=1001,gid=1001
+  
+  blockchain-data:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1G,uid=1001,gid=1001

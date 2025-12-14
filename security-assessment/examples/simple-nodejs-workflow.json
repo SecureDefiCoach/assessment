@@ -1,0 +1,40 @@
+{
+  "name": "simple-nodejs-example",
+  "description": "Simple Node.js security assessment example",
+  "version": "1.0.0",
+  "codebaseTypes": ["nodejs"],
+  "steps": [
+    {
+      "name": "setup",
+      "description": "Set up analysis environment",
+      "tool": "setup",
+      "config": {
+        "nodeVersion": "lts",
+        "installDependencies": true,
+        "createOutputDir": true
+      }
+    },
+    {
+      "name": "dependency-check",
+      "description": "Check for vulnerable dependencies",
+      "tool": "npm-audit",
+      "config": {
+        "auditLevel": "moderate",
+        "outputFormat": "json"
+      },
+      "condition": {
+        "type": "file-exists",
+        "value": "package.json"
+      }
+    },
+    {
+      "name": "code-analysis",
+      "description": "Static code analysis",
+      "tool": "eslint",
+      "config": {
+        "extensions": [".js", ".ts"],
+        "outputFormat": "json"
+      }
+    }
+  ]
+}

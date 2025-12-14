@@ -1,0 +1,78 @@
+{
+  "name": "solidity-comprehensive",
+  "description": "Comprehensive security assessment for Solidity smart contracts",
+  "version": "1.0.0",
+  "codebaseTypes": ["solidity"],
+  "steps": [
+    {
+      "name": "setup-solidity",
+      "description": "Set up Solidity development environment",
+      "tool": "setup",
+      "config": {
+        "solidityVersion": "latest",
+        "installHardhat": true,
+        "createOutputDir": true
+      }
+    },
+    {
+      "name": "compile-contracts",
+      "description": "Compile Solidity contracts",
+      "tool": "solidity-compiler",
+      "config": {
+        "version": "auto",
+        "optimizer": true,
+        "outputFormat": "json"
+      },
+      "condition": {
+        "type": "file-exists",
+        "value": "contracts"
+      }
+    },
+    {
+      "name": "slither-analysis",
+      "description": "Run Slither security analysis",
+      "tool": "slither",
+      "config": {
+        "detectors": "all",
+        "outputFormat": "json",
+        "excludeInformational": false
+      }
+    },
+    {
+      "name": "mythx-analysis",
+      "description": "Run MythX security analysis",
+      "tool": "mythx",
+      "config": {
+        "mode": "quick",
+        "outputFormat": "json"
+      },
+      "timeout": 600
+    },
+    {
+      "name": "gas-analysis",
+      "description": "Analyze gas usage patterns",
+      "tool": "gas-analyzer",
+      "config": {
+        "optimizationLevel": 200,
+        "reportThreshold": 100000
+      }
+    },
+    {
+      "name": "contract-tests",
+      "description": "Run smart contract tests",
+      "tool": "hardhat-test",
+      "config": {
+        "network": "hardhat",
+        "coverage": true,
+        "timeout": 300
+      },
+      "condition": {
+        "type": "file-exists",
+        "value": "test"
+      }
+    }
+  ],
+  "parallelSteps": [
+    ["slither-analysis", "mythx-analysis", "gas-analysis"]
+  ]
+}

@@ -1,0 +1,106 @@
+# Development Override for Security Assessment
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+
+version: '3.8'
+
+services:
+  security-assessment:
+    # Enable network access for development (controlled)
+    networks:
+      - assessment-network
+      - controlled-external
+    
+    # Additional development volumes
+    volumes:
+      # Development tools
+      - type: bind
+        source: ./tools
+        target: /app/tools
+        read_only: true
+      # Configuration files
+      - type: bind
+        source: ./config
+        target: /app/config
+        read_only: true
+    
+    # Development environment variables
+    environment:
+      - NODE_ENV=development
+      - DEBUG=${DEBUG:-false}
+      - VERBOSE_LOGGING=${VERBOSE_LOGGING:-true}
+    
+    # Allow interactive mode for development
+    stdin_open: true
+    tty: true
+
+  blockchain-assessment:
+    # Enable controlled network access
+    networks:
+      - blockchain-network
+      - controlled-external
+    
+    # Development volumes
+    volumes:
+      # Hardhat config
+      - type: bind
+        source: ./hardhat.config.js
+        target: /app/hardhat.config.js
+        read_only: true
+      # Truffle config
+      - type: bind
+        source: ./truffle-config.js
+        target: /app/truffle-config.js
+        read_only: true
+    
+    # Development environment
+    environment:
+      - NODE_ENV=development
+      - DEBUG=${DEBUG:-false}
+      - HARDHAT_VERBOSE=${HARDHAT_VERBOSE:-false}
+    
+    # Interactive mode
+    stdin_open: true
+    tty: true
+
+  # Controlled external access proxy
+  external-proxy:
+    image: nginx:alpine
+    container_name: external-proxy
+    
+    # Security configurations
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    
+    # Networks
+    networks:
+      - controlled-external
+    
+    # Proxy configuration
+    volumes:
+      - type: bind
+        source: ./config/nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+    
+    # User security
+    user: "101:101"  # nginx user
+    
+    # Restart policy
+    restart: "no"
+
+# Additional network for controlled external access
+networks:
+  controlled-external:
+    driver: bridge
+    # Note: This network allows external access for development
+    # Remove in production for complete isolation
+    ipam:
+      config:
+        - subnet: 172.22.0.0/24

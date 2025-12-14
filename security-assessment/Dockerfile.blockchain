@@ -1,0 +1,110 @@
+# Blockchain Security Assessment Container
+# Specialized image for smart contract analysis
+
+FROM node:20-alpine AS blockchain-builder
+
+# Install build dependencies for blockchain tools
+RUN apk add --no-cache \
+    git \
+    python3 \
+    make \
+    g++ \
+    cmake \
+    libc6-compat \
+    && rm -rf /var/cache/apk/*
+
+# Install Solidity compiler
+RUN wget -O /usr/local/bin/solc https://github.com/ethereum/solidity/releases/download/v0.8.21/solc-static-linux && \
+    chmod +x /usr/local/bin/solc
+
+# Install blockchain development tools
+RUN npm install -g \
+    hardhat \
+    truffle \
+    ganache \
+    @truffle/hdwallet-provider \
+    @openzeppelin/contracts \
+    @openzeppelin/hardhat-upgrades \
+    @nomiclabs/hardhat-ethers \
+    @nomiclabs/hardhat-waffle \
+    ethereum-waffle \
+    chai \
+    ethers
+
+# Production blockchain image
+FROM node:20-alpine AS blockchain-production
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S blockchain && \
+    adduser -S blockchain -u 1001 -G blockchain
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    curl \
+    wget \
+    git \
+    python3 \
+    py3-pip \
+    bash \
+    jq \
+    && rm -rf /var/cache/apk/*
+
+# Install Python blockchain security tools
+RUN pip3 install --no-cache-dir \
+    slither-analyzer \
+    mythril \
+    manticore \
+    echidna-parade \
+    crytic-compile
+
+# Copy Solidity compiler
+COPY --from=blockchain-builder /usr/local/bin/solc /usr/local/bin/solc
+
+# Copy blockchain tools from builder
+COPY --from=blockchain-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=blockchain-builder /usr/local/bin /usr/local/bin
+
+# Create secure workspace
+RUN mkdir -p /app/contracts /app/tests /app/results /app/config && \
+    chown -R blockchain:blockchain /app
+
+WORKDIR /app/contracts
+
+# Install additional security analysis tools
+RUN npm install --global \
+    solhint \
+    prettier-plugin-solidity \
+    hardhat-gas-reporter \
+    hardhat-contract-sizer \
+    && npm cache clean --force
+
+# Security hardening
+RUN rm -rf /usr/share/man/* \
+    /usr/share/doc/* \
+    /var/cache/apk/* \
+    /tmp/* \
+    /var/tmp/*
+
+# Environment variables for blockchain tools
+ENV HARDHAT_NETWORK=localhost
+ENV SOLC_VERSION=0.8.21
+ENV NODE_ENV=production
+ENV BLOCKCHAIN_ANALYSIS=true
+
+# Switch to non-root user
+USER blockchain
+
+# Health check for blockchain tools
+HEALTHCHECK --interval=30s --timeout=15s --start-period=10s --retries=3 \
+    CMD solc --version && hardhat --version || exit 1
+
+# Default command
+CMD ["/bin/sh"]
+
+# Security and blockchain labels
+LABEL security.scan="enabled" \
+      security.user="non-root" \
+      security.network="isolated" \
+      blockchain.solidity="enabled" \
+      blockchain.hardhat="enabled" \
+      maintainer="blockchain-security-team"
